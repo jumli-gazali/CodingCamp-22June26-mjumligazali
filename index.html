@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense Budget Visualizer</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Expense Budget Visualizer</h1>
+      <button
+        id="dark-mode-toggle"
+        class="btn-icon"
+        aria-label="Toggle dark mode"
+        title="Toggle dark mode"
+      >
+        🌙
+      </button>
+    </header>
+
+    <!-- Hero balance card — full width, above all sections -->
+    <div class="balance-hero">
+      <p class="balance-hero__label">Total Balance</p>
+      <p class="balance-hero__amount" id="balance">Rp 0</p>
+    </div>
+
+    <main>
+      <!-- Form -->
+      <section class="form-section">
+        <h2>Add Transaction</h2>
+        <form id="transaction-form" novalidate>
+          <div class="form-group">
+            <label for="item-name">Item Name</label>
+            <input
+              type="text"
+              id="item-name"
+              name="itemName"
+              placeholder="e.g. Lunch"
+              autocomplete="off"
+            />
+            <span
+              class="error-message"
+              id="item-name-error"
+              aria-live="polite"
+            ></span>
+          </div>
+
+          <div class="form-group">
+            <label for="amount">Amount (Rp)</label>
+            <div class="input-prefix-wrap">
+              <span class="input-prefix">Rp</span>
+              <input
+                type="number"
+                id="amount"
+                name="amount"
+                placeholder="25000"
+                min="0.01"
+                step="any"
+              />
+            </div>
+            <span
+              class="error-message"
+              id="amount-error"
+              aria-live="polite"
+            ></span>
+          </div>
+
+          <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" name="category">
+              <option value="">-- Select Category --</option>
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Fun">Fun</option>
+              <!-- Custom categories injected here by JS -->
+              <option value="__new__">+ Add new category…</option>
+            </select>
+            <span
+              class="error-message"
+              id="category-error"
+              aria-live="polite"
+            ></span>
+          </div>
+
+          <!-- Inline new-category panel — shown when "Add new" is selected -->
+          <div id="new-category-panel" class="new-category-panel" hidden>
+            <div class="add-category-form">
+              <input
+                type="text"
+                id="new-category-name"
+                placeholder="Category name"
+                maxlength="30"
+              />
+              <input
+                type="color"
+                id="new-category-color"
+                value="#9b5de5"
+                title="Pick colour"
+              />
+              <button type="button" id="btn-add-category" class="btn-secondary">
+                Save
+              </button>
+            </div>
+            <span
+              class="error-message"
+              id="category-add-error"
+              aria-live="polite"
+            ></span>
+          </div>
+
+          <div class="form-group">
+            <label for="txn-date">Date</label>
+            <input type="date" id="txn-date" name="txnDate" />
+            <span
+              class="error-message"
+              id="date-error"
+              aria-live="polite"
+            ></span>
+          </div>
+
+          <button type="submit" class="btn-submit">Add Transaction</button>
+        </form>
+      </section>
+
+      <!-- Transaction list -->
+      <section class="list-section">
+        <h2>Transactions</h2>
+        <ul id="transaction-list" aria-label="Transaction list"></ul>
+      </section>
+
+      <!-- Chart — filtered by current summary month -->
+      <section class="chart-section">
+        <h2>Spending by Category</h2>
+        <p class="chart-month-label" id="chart-month-label"></p>
+        <p id="chart-placeholder" class="chart-placeholder">
+          No transactions yet. Add one to see the chart.
+        </p>
+        <canvas
+          id="pie-chart"
+          aria-label="Spending pie chart"
+          role="img"
+        ></canvas>
+        <p class="chart-total-label" id="chart-total-label"></p>
+      </section>
+
+      <!-- Monthly summary -->
+      <section class="summary-section">
+        <h2>Monthly Summary</h2>
+        <div class="summary-controls">
+          <button
+            id="btn-prev-month"
+            class="btn-icon"
+            aria-label="Previous month"
+          >
+            &#8249;
+          </button>
+          <span id="summary-month-label" class="summary-month-label"></span>
+          <button id="btn-next-month" class="btn-icon" aria-label="Next month">
+            &#8250;
+          </button>
+        </div>
+        <div id="monthly-summary-content"></div>
+      </section>
+    </main>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
