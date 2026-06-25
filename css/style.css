@@ -295,50 +295,83 @@ body.dark .transaction-amount { background: #14532d; color: #86efac; }
 .summary-pct { font-size: 0.8rem; color: var(--text-muted); text-align: right; }
 .summary-amt { font-weight: 700; color: var(--text-primary); text-align: right; font-size: 0.82rem; }
 
-/* -------------------------------------------------------------------------- Responsive */
+
+/* ==========================================================================
+   Responsive (Mobile Android Fix)
+   ========================================================================== */
 @media (max-width: 600px) {
-  main { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
-  .summary-section { grid-column: 1; }
-  body { overflow-x: hidden; }
-  header { gap: 0.5rem; }
-  .balance-hero__amount { font-size: 2rem; }
+  main { 
+    grid-template-columns: 1fr; 
+    padding: 1rem; 
+    gap: 1rem; 
+  }
 
-  /* PERBAIKAN CARD TRANSACTION UNTUK ANDROID MOBLIE */
-  .transaction-item { 
-    grid-template-columns: 1fr auto auto; 
-    grid-template-rows: auto auto; 
-    gap: 0.4rem 0.6rem;
-    align-items: center;
-  }
-  
-  .transaction-name { 
-    grid-column: 1 / 3; 
-    grid-row: 1; 
-  }
-  
-  .btn-delete { 
-    grid-column: 3; 
-    grid-row: 1 / 3; 
-    align-self: center; 
-    height: 100%; /* Memastikan tombol pas di samping */
-  }
-  
-  .transaction-amount { 
+  .summary-section { 
     grid-column: 1; 
-    grid-row: 2; 
-    justify-self: start; 
-    text-align: left;
-  }
-  
-  .transaction-category { 
-    grid-column: 2; 
-    grid-row: 2; 
-    justify-self: start; 
-    min-width: unset; 
   }
 
-  .summary-row { grid-template-columns: 10px 5rem 1fr 2.5rem; }
-  .summary-amt { display: none; }
+  body { 
+    overflow-x: hidden; 
+  }
+
+  header { 
+    gap: 0.5rem; 
+  }
+
+  .balance-hero__amount { 
+    font-size: 2rem; 
+  }
+
+  /* --- FIX RESPONSIVE FOR TRANSACTION ITEM CARD --- */
+  .transaction-item {
+    /* Mengubah baris kaku menjadi 2 baris utama di mobile */
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 0.5rem 0.75rem;
+    align-items: center;
+    padding: 1rem;
+  }
+
+  .transaction-name {
+    grid-column: 1 / 2;
+    grid-row: 1;
+    white-space: normal; /* Mengizinkan teks membungkus ke bawah jika terlalu panjang */
+  }
+
+  .transaction-amount {
+    grid-column: 1 / 2;
+    grid-row: 2;
+    justify-self: start; /* Nominal diletakkan di bawah nama item sebelah kiri */
+    font-size: 0.9rem;
+    padding: 0.2rem 0.6rem;
+  }
+
+  .transaction-category {
+    grid-column: 2 / 3;
+    grid-row: 2;
+    justify-self: end; /* Tag kategori diletakkan di bawah sebelah kanan */
+    min-width: unset;
+    font-size: 0.65rem;
+  }
+
+  .btn-delete {
+    grid-column: 2 / 3;
+    grid-row: 1;
+    justify-self: end; /* Tombol hapus diletakkan di pojok kanan atas */
+    align-self: center;
+    min-height: 36px;  /* Sedikit diperkecil agar pas dengan grid atas */
+    min-width: 36px;
+    padding: 0;
+  }
+
+  /* --- FIX RESPONSIVE FOR MONTHLY SUMMARY ROW --- */
+  .summary-row { 
+    grid-template-columns: 10px 5rem 1fr 2.5rem; 
+  }
+
+  .summary-amt { 
+    display: none; 
+  }
 }
 
 /* -------------------------------------------------------------------------- Responsive
