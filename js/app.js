@@ -30,7 +30,11 @@ let summaryYear  = new Date().getFullYear();
 let summaryMonth = new Date().getMonth(); // 0-indexed
 
 // Sort state
-let sortMode = 'amount-desc'; // default: amount terbesar dulu (mandatory requirement teratas)
+let sortMode = 'amount-desc';
+
+// Monthly budget limit (0 = not set)
+let monthlyBudgetLimit = 0;
+const BUDGET_LIMIT_KEY = 'expense_budget_limit';
 
 // ---------------------------------------------------------------------------
 // Persistence
@@ -60,6 +64,15 @@ function loadCategories() {
   if (!raw) return [];
   try { return JSON.parse(raw); }
   catch { return []; }
+}
+
+function saveBudgetLimit() {
+  window.localStorage.setItem(BUDGET_LIMIT_KEY, String(monthlyBudgetLimit));
+}
+
+function loadBudgetLimit() {
+  const raw = window.localStorage.getItem(BUDGET_LIMIT_KEY);
+  return raw ? Number(raw) : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -370,6 +383,7 @@ function renderMonthlySummary() {
 
   if (monthTxns.length === 0) {
     content.innerHTML = '<p class="summary-empty">No transactions this month.</p>';
+    renderBudgetBar(content, 0);
     return;
   }
 
@@ -392,10 +406,50 @@ function renderMonthlySummary() {
         </div>`;
     }).join('');
 
+  const overBudget = monthlyBudgetLimit > 0 && total > monthlyBudgetLimit;
+
   content.innerHTML = `
-    <div class="summary-total">Total: <strong>${IDR.format(total)}</strong> (${monthTxns.length} transaction${monthTxns.length !== 1 ? 's' : ''})</div>
+    <div class="summary-total${overBudget ? ' over-budget' : ''}">
+      Total: <strong>${IDR.format(total)}</strong>
+      ${overBudget ? '<span class="budget-exceeded-badge">⚠ Over Budget</span>' : ''}
+      <span style="opacity:0.6;font-size:0.8rem">(${monthTxns.length} transaction${monthTxns.length !== 1 ? 's' : ''})</span>
+    </div>
     <div class="summary-rows">${rows}</div>
   `;
+
+  renderBudgetBar(content, total);
+}
+
+function renderBudgetBar(container, total) {
+  // Remove existing budget bar if any
+  const existing = container.querySelector('.budget-bar-section');
+  if (existing) existing.remove();
+
+  if (monthlyBudgetLimit <= 0) return;
+
+  const pct        = Math.min((total / monthlyBudgetLimit) * 100, 100);
+  const over       = total > monthlyBudgetLimit;
+  const remaining  = monthlyBudgetLimit - total;
+
+  const section = document.createElement('div');
+  section.className = 'budget-bar-section';
+  section.innerHTML = `
+    <div class="budget-bar-header">
+      <span class="budget-bar-label">Monthly Budget</span>
+      <span class="budget-bar-limit">${IDR.format(monthlyBudgetLimit)}</span>
+    </div>
+    <div class="budget-bar-track">
+      <div class="budget-bar-fill${over ? ' over' : ''}" style="width:${pct}%"></div>
+    </div>
+    <div class="budget-bar-footer">
+      ${over
+        ? `<span class="budget-over-text">⚠ Over by ${IDR.format(Math.abs(remaining))}</span>`
+        : `<span class="budget-remain-text">${IDR.format(remaining)} remaining</span>`
+      }
+      <span class="budget-pct-text">${pct.toFixed(0)}%</span>
+    </div>
+  `;
+  container.prepend(section);
 }
 
 // ---------------------------------------------------------------------------
@@ -722,6 +776,7 @@ function handleEditSubmit(event) {
 document.addEventListener('DOMContentLoaded', () => {
   customCategories = loadCategories();
   transactions     = loadFromLocalStorage();
+  monthlyBudgetLimit = loadBudgetLimit();
 
   // Set date input default to today
   const dateEl = document.getElementById('txn-date');
@@ -782,4 +837,41 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!/^\d$/.test(e.key)) e.preventDefault();
     });
   }
+
+  // Budget limit input
+  const budgetDisplay = document.getElementById('budget-limit-display');
+  const budgetHidden  = document.getElementById('budget-limit');
+  if (budgetDisplay) {
+    // Pre-fill if saved
+    if (monthlyBudgetLimit > 0) {
+      budgetDisplay.value = String(monthlyBudgetLimit).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    budgetDisplay.addEventListener('input', () => {
+      const digits = budgetDisplay.value.replace(/\D/g, '');
+      budgetDisplay.value = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      if (budgetHidden) budgetHidden.value = digits;
+    });
+    budgetDisplay.addEventListener('keydown', (e) => {
+      if (['Backspace','Delete','Tab','ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+      if (!/^\d$/.test(e.key)) e.preventDefault();
+    });
+  }
+
+  document.getElementById('btn-set-budget')?.addEventListener('click', () => {
+    const raw = document.getElementById('budget-limit')?.value ?? '';
+    const val = Number(raw);
+    monthlyBudgetLimit = (Number.isFinite(val) && val > 0) ? val : 0;
+    saveBudgetLimit();
+    renderMonthlySummary();
+  });
+
+  document.getElementById('btn-clear-budget')?.addEventListener('click', () => {
+    monthlyBudgetLimit = 0;
+    saveBudgetLimit();
+    const disp = document.getElementById('budget-limit-display');
+    if (disp) disp.value = '';
+    const hid = document.getElementById('budget-limit');
+    if (hid) hid.value = '';
+    renderMonthlySummary();
+  });
 });

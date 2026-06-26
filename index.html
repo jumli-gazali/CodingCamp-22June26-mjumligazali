@@ -65,6 +65,36 @@
             </button>
           </div>
         </div>
+        <!-- Budget limit setter -->
+        <div class="budget-limit-row">
+          <div class="input-prefix-wrap" style="flex: 1">
+            <span class="input-prefix">Rp</span>
+            <input
+              type="text"
+              id="budget-limit-display"
+              inputmode="numeric"
+              placeholder="Set monthly budget…"
+              autocomplete="off"
+            />
+            <input type="hidden" id="budget-limit" />
+          </div>
+          <button
+            type="button"
+            id="btn-set-budget"
+            class="btn-icon-sm"
+            title="Set budget"
+          >
+            ✓
+          </button>
+          <button
+            type="button"
+            id="btn-clear-budget"
+            class="btn-icon-sm"
+            title="Clear budget"
+          >
+            ✕
+          </button>
+        </div>
         <div id="monthly-summary-content"></div>
       </section>
 
