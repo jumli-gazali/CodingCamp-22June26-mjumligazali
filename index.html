@@ -14,20 +14,81 @@
         id="dark-mode-toggle"
         class="btn-icon"
         aria-label="Toggle dark mode"
-        title="Toggle dark mode"
       >
         🌙
       </button>
     </header>
 
-    <!-- Hero balance card — full width, above all sections -->
     <div class="balance-hero">
       <p class="balance-hero__label">Total Balance</p>
       <p class="balance-hero__amount" id="balance">Rp 0</p>
     </div>
 
     <main>
-      <!-- Form -->
+      <!-- Kiri atas: Chart -->
+      <section class="chart-section">
+        <div class="section-header">
+          <h2>Spending by Category</h2>
+        </div>
+        <p id="chart-placeholder" class="chart-placeholder">
+          No transactions yet. Add one to see the chart.
+        </p>
+        <div class="chart-canvas-wrap">
+          <canvas
+            id="pie-chart"
+            aria-label="Spending pie chart"
+            role="img"
+          ></canvas>
+        </div>
+        <p class="chart-total-label" id="chart-total-label"></p>
+      </section>
+
+      <!-- Kanan atas: Monthly Summary -->
+      <section class="summary-section">
+        <div class="section-header">
+          <h2>Monthly Summary</h2>
+          <div class="summary-controls">
+            <button
+              id="btn-prev-month"
+              class="btn-icon-sm"
+              aria-label="Previous month"
+            >
+              &#8249;
+            </button>
+            <span id="summary-month-label" class="summary-month-label"></span>
+            <button
+              id="btn-next-month"
+              class="btn-icon-sm"
+              aria-label="Next month"
+            >
+              &#8250;
+            </button>
+          </div>
+        </div>
+        <div id="monthly-summary-content"></div>
+      </section>
+
+      <!-- Kiri bawah: Transaction list -->
+      <section class="list-section">
+        <div class="list-header">
+          <h2>Transactions</h2>
+          <div class="sort-controls">
+            <label for="sort-select" class="sort-label">Sort:</label>
+            <select id="sort-select" class="sort-select">
+              <option value="amount-desc">Amount ↓</option>
+              <option value="amount-asc">Amount ↑</option>
+              <option value="category-asc">Category A–Z</option>
+              <option value="entry-desc">Newest Entry ↓</option>
+              <option value="entry-asc">Oldest Entry ↑</option>
+              <option value="date-desc">Date Newest ↓</option>
+              <option value="date-asc">Date Oldest ↑</option>
+            </select>
+          </div>
+        </div>
+        <ul id="transaction-list" aria-label="Transaction list"></ul>
+      </section>
+
+      <!-- Kanan bawah: Form -->
       <section class="form-section">
         <h2>Add Transaction</h2>
         <form id="transaction-form" novalidate>
@@ -48,17 +109,17 @@
           </div>
 
           <div class="form-group">
-            <label for="amount">Amount (Rp)</label>
+            <label for="amount-display">Amount (Rp)</label>
             <div class="input-prefix-wrap">
               <span class="input-prefix">Rp</span>
               <input
-                type="number"
-                id="amount"
-                name="amount"
-                placeholder="25000"
-                min="0.01"
-                step="any"
+                type="text"
+                id="amount-display"
+                inputmode="numeric"
+                placeholder="25.000"
+                autocomplete="off"
               />
+              <input type="hidden" id="amount" name="amount" />
             </div>
             <span
               class="error-message"
@@ -69,14 +130,24 @@
 
           <div class="form-group">
             <label for="category">Category</label>
-            <select id="category" name="category">
-              <option value="">-- Select Category --</option>
-              <option value="Food">Food</option>
-              <option value="Transport">Transport</option>
-              <option value="Fun">Fun</option>
-              <!-- Custom categories injected here by JS -->
-              <option value="__new__">+ Add new category…</option>
-            </select>
+            <div class="category-row">
+              <select id="category" name="category" style="flex: 1">
+                <option value="">-- Select Category --</option>
+                <option value="Food">Food</option>
+                <option value="Transport">Transport</option>
+                <option value="Fun">Fun</option>
+                <option value="__new__">+ Add new category…</option>
+              </select>
+              <button
+                type="button"
+                id="btn-manage-categories"
+                class="btn-icon-sm"
+                title="Manage categories"
+                aria-label="Manage categories"
+              >
+                ⚙️
+              </button>
+            </div>
             <span
               class="error-message"
               id="category-error"
@@ -84,7 +155,6 @@
             ></span>
           </div>
 
-          <!-- Inline new-category panel — shown when "Add new" is selected -->
           <div id="new-category-panel" class="new-category-panel" hidden>
             <div class="add-category-form">
               <input
@@ -93,12 +163,10 @@
                 placeholder="Category name"
                 maxlength="30"
               />
-              <input
-                type="color"
-                id="new-category-color"
-                value="#9b5de5"
-                title="Pick colour"
-              />
+              <p class="new-cat-color-hint">
+                Color assigned automatically. Change later via ⚙️ Manage.
+              </p>
+              <input type="hidden" id="new-category-color" value="" />
               <button type="button" id="btn-add-category" class="btn-secondary">
                 Save
               </button>
@@ -123,48 +191,81 @@
           <button type="submit" class="btn-submit">Add Transaction</button>
         </form>
       </section>
-
-      <!-- Transaction list -->
-      <section class="list-section">
-        <h2>Transactions</h2>
-        <ul id="transaction-list" aria-label="Transaction list"></ul>
-      </section>
-
-      <!-- Chart — filtered by current summary month -->
-      <section class="chart-section">
-        <h2>Spending by Category</h2>
-        <p class="chart-month-label" id="chart-month-label"></p>
-        <p id="chart-placeholder" class="chart-placeholder">
-          No transactions yet. Add one to see the chart.
-        </p>
-        <canvas
-          id="pie-chart"
-          aria-label="Spending pie chart"
-          role="img"
-        ></canvas>
-        <p class="chart-total-label" id="chart-total-label"></p>
-      </section>
-
-      <!-- Monthly summary -->
-      <section class="summary-section">
-        <h2>Monthly Summary</h2>
-        <div class="summary-controls">
-          <button
-            id="btn-prev-month"
-            class="btn-icon"
-            aria-label="Previous month"
-          >
-            &#8249;
-          </button>
-          <span id="summary-month-label" class="summary-month-label"></span>
-          <button id="btn-next-month" class="btn-icon" aria-label="Next month">
-            &#8250;
-          </button>
-        </div>
-        <div id="monthly-summary-content"></div>
-      </section>
     </main>
 
     <script type="module" src="js/app.js"></script>
+
+    <!-- Edit transaction modal -->
+    <div
+      id="edit-modal"
+      class="modal-overlay"
+      hidden
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="edit-modal-title"
+    >
+      <div class="modal-card">
+        <h3 id="edit-modal-title">Edit Transaction</h3>
+        <form id="edit-form" novalidate>
+          <input type="hidden" id="edit-id" />
+          <div class="form-group">
+            <label for="edit-item-name">Item Name</label>
+            <input type="text" id="edit-item-name" autocomplete="off" />
+            <span class="error-message" id="edit-item-name-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="edit-amount-display">Amount (Rp)</label>
+            <div class="input-prefix-wrap">
+              <span class="input-prefix">Rp</span>
+              <input type="text" id="edit-amount-display" inputmode="numeric" />
+              <input type="hidden" id="edit-amount" />
+            </div>
+            <span class="error-message" id="edit-amount-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="edit-category">Category</label>
+            <select id="edit-category"></select>
+            <span class="error-message" id="edit-category-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="edit-date">Date</label>
+            <input type="date" id="edit-date" />
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="btn-edit-cancel" class="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" class="btn-submit" style="flex: 1">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Manage categories modal -->
+    <div
+      id="manage-cat-modal"
+      class="modal-overlay"
+      hidden
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="manage-cat-title"
+    >
+      <div class="modal-card">
+        <h3 id="manage-cat-title">Manage Categories</h3>
+        <div id="manage-cat-list" class="manage-cat-list"></div>
+        <div class="modal-actions" style="margin-top: 1rem">
+          <button
+            type="button"
+            id="btn-manage-cat-close"
+            class="btn-secondary"
+            style="flex: 1"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

@@ -29,6 +29,9 @@ let customCategories = [];
 let summaryYear  = new Date().getFullYear();
 let summaryMonth = new Date().getMonth(); // 0-indexed
 
+// Sort state
+let sortMode = 'amount-desc'; // default: amount terbesar dulu (mandatory requirement teratas)
+
 // ---------------------------------------------------------------------------
 // Persistence
 // ---------------------------------------------------------------------------
@@ -115,8 +118,50 @@ function refreshCategorySelect() {
 }
 
 // ---------------------------------------------------------------------------
-// Validator
+// Amount input — format with thousand separators (dots) as user types
 // ---------------------------------------------------------------------------
+
+function initAmountInput() {
+  const display = document.getElementById('amount-display');
+  const hidden  = document.getElementById('amount');
+  if (!display || !hidden) return;
+
+  display.addEventListener('input', () => {
+    // Strip everything except digits
+    const digits = display.value.replace(/\D/g, '');
+    // Format: 25000 → "25.000"
+    const formatted = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    display.value = formatted;
+    // Store raw numeric value in hidden input
+    hidden.value = digits;
+  });
+
+  display.addEventListener('keydown', (e) => {
+    // Allow: backspace, delete, tab, arrows, home, end
+    if (['Backspace','Delete','Tab','ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+    // Block non-numeric keys
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Color helpers — random assignment from pool, avoiding colors already in use
+// ---------------------------------------------------------------------------
+
+const COLOR_POOL = [
+  '#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF',
+  '#FF9F40','#2ECC71','#E74C3C','#3498DB','#9B59B6',
+  '#1ABC9C','#F39C12','#D35400','#27AE60','#2980B9',
+  '#8E44AD','#16A085','#F1C40F','#E67E22','#95A5A6',
+];
+
+function pickRandomColor() {
+  const used = new Set(allCategories().map((c) => c.color.toUpperCase()));
+  const available = COLOR_POOL.filter((c) => !used.has(c.toUpperCase()));
+  const pool = available.length > 0 ? available : COLOR_POOL;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 
 function validateForm(itemName, amount, category, dateStr) {
   const errors = {};
@@ -151,13 +196,27 @@ function renderBalance(txns) {
 // Render — Transaction list
 // ---------------------------------------------------------------------------
 
+function getSorted(txns) {
+  const arr = txns.slice();
+  switch (sortMode) {
+    case 'amount-desc':   return arr.sort((a, b) => b.amount - a.amount);
+    case 'amount-asc':    return arr.sort((a, b) => a.amount - b.amount);
+    case 'category-asc':  return arr.sort((a, b) => a.category.localeCompare(b.category));
+    case 'entry-desc':    return arr.sort((a, b) => (b.createdAt ?? b.timestamp) - (a.createdAt ?? a.timestamp));
+    case 'entry-asc':     return arr.sort((a, b) => (a.createdAt ?? a.timestamp) - (b.createdAt ?? b.timestamp));
+    case 'date-desc':     return arr.sort((a, b) => b.timestamp - a.timestamp);
+    case 'date-asc':      return arr.sort((a, b) => a.timestamp - b.timestamp);
+    default:              return arr.sort((a, b) => b.amount - a.amount);
+  }
+}
+
 function renderTransactionList(txns) {
   const listEl = document.getElementById('transaction-list');
   if (!listEl) return;
   listEl.style.overflowY = 'auto';
   listEl.innerHTML = '';
 
-  const sorted = txns.slice().sort((a, b) => b.timestamp - a.timestamp);
+  const sorted = getSorted(txns);
 
   sorted.forEach((t) => {
     const li = document.createElement('li');
@@ -166,7 +225,7 @@ function renderTransactionList(txns) {
     li.setAttribute('data-category', t.category);
     li.style.setProperty('--cat-color', categoryColor(t.category));
 
-    const dateLabel = new Date(t.timestamp).toLocaleDateString('id-ID', {
+    const dateLabel = new Date(t.timestamp).toLocaleDateString('en-GB', {
       day: '2-digit', month: 'short', year: 'numeric',
     });
 
@@ -174,8 +233,10 @@ function renderTransactionList(txns) {
       <span class="transaction-name">${escapeHtml(t.itemName)}<span class="transaction-date">${dateLabel}</span></span>
       <span class="transaction-amount">${IDR.format(t.amount)}</span>
       <span class="transaction-category">${escapeHtml(t.category)}</span>
+      <button class="btn-edit" data-id="${t.id}" aria-label="Edit ${escapeHtml(t.itemName)}">✏️</button>
       <button class="btn-delete" data-id="${t.id}" aria-label="Delete ${escapeHtml(t.itemName)}">✕</button>
     `;
+    li.querySelector('.btn-edit').addEventListener('click', () => openEditModal(t.id));
     li.querySelector('.btn-delete').addEventListener('click', () => handleDelete(t.id));
     listEl.appendChild(li);
   });
@@ -205,6 +266,8 @@ function renderPieChart() {
 
   if (monthTxns.length === 0) {
     if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    const wrap = canvas?.parentElement;
+    if (wrap) wrap.style.display = 'none';
     if (canvas) canvas.style.display = 'none';
     if (placeholder) placeholder.style.display = '';
     if (totalLabel) totalLabel.textContent = '';
@@ -224,6 +287,8 @@ function renderPieChart() {
   const colors = labels.map((c) => categoryColor(c));
   const monthTotal = monthTxns.reduce((s, t) => s + t.amount, 0);
 
+  const wrap = canvas?.parentElement;
+  if (wrap) wrap.style.display = '';
   if (canvas) canvas.style.display = 'block';
   if (placeholder) placeholder.style.display = 'none';
   if (totalLabel) totalLabel.textContent = `Total: ${IDR.format(monthTotal)}`;
@@ -262,10 +327,11 @@ function renderPieChart() {
     data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#ffffff' }] },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
-          position: 'bottom',
-          labels: { padding: 16, font: { size: 13 }, usePointStyle: true, pointStyleWidth: 10 },
+          position: 'right',
+          labels: { padding: 12, font: { size: 12 }, usePointStyle: true, pointStyleWidth: 10, boxWidth: 10 },
         },
         tooltip: {
           callbacks: {
@@ -327,7 +393,7 @@ function renderMonthlySummary() {
     }).join('');
 
   content.innerHTML = `
-    <div class="summary-total">Total: <strong>${IDR.format(total)}</strong> (${monthTxns.length} transaksi)</div>
+    <div class="summary-total">Total: <strong>${IDR.format(total)}</strong> (${monthTxns.length} transaction${monthTxns.length !== 1 ? 's' : ''})</div>
     <div class="summary-rows">${rows}</div>
   `;
 }
@@ -341,6 +407,7 @@ function render() {
   renderTransactionList(transactions);
   renderPieChart();        // uses summaryYear/summaryMonth
   renderMonthlySummary();  // same filter
+  renderManageCategories();
 }
 
 // ---------------------------------------------------------------------------
@@ -417,10 +484,13 @@ function handleFormSubmit(event) {
   summaryYear  = d.getFullYear();
   summaryMonth = d.getMonth();
 
-  transactions.push({ id: generateUUID(), itemName: itemName.trim(), amount: parseFloat(amount), category, timestamp });
+  transactions.push({ id: generateUUID(), itemName: itemName.trim(), amount: parseFloat(amount), category, timestamp, createdAt: Date.now() });
   saveToLocalStorage(transactions);
   render();
   event.target.reset();
+  // Clear the formatted display field (not reset by form.reset() since it's text)
+  const display = document.getElementById('amount-display');
+  if (display) display.value = '';
   // Hide new-category panel if open
   const panel = document.getElementById('new-category-panel');
   if (panel) panel.hidden = true;
@@ -446,12 +516,11 @@ function handleCategoryChange() {
 
 function handleAddCategory() {
   const nameEl  = document.getElementById('new-category-name');
-  const colorEl = document.getElementById('new-category-color');
   const errEl   = document.getElementById('category-add-error');
-  if (!nameEl || !colorEl) return;
+  if (!nameEl) return;
 
   const name  = nameEl.value.trim();
-  const color = colorEl.value;
+  const color = pickRandomColor(); // auto-assign
   if (errEl) errEl.textContent = '';
 
   if (!name) { if (errEl) errEl.textContent = 'Category name required.'; return; }
@@ -462,14 +531,11 @@ function handleAddCategory() {
   customCategories.push({ name, color });
   saveCategories();
   refreshCategorySelect();
-  // Auto-select the newly created category
   const sel = document.getElementById('category');
   if (sel) sel.value = name;
-  // Hide panel
   const panel = document.getElementById('new-category-panel');
   if (panel) panel.hidden = true;
   nameEl.value = '';
-  colorEl.value = '#9b5de5';
 }
 
 function handlePrevMonth() {
@@ -487,6 +553,166 @@ function handleNextMonth() {
   if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
   renderPieChart();
   renderMonthlySummary();
+}
+
+// ---------------------------------------------------------------------------
+// Manage categories (render delete list)
+// ---------------------------------------------------------------------------
+
+function renderManageCategories() {
+  const container = document.getElementById('manage-cat-list');
+  if (!container) return;
+
+  const cats = allCategories();
+  if (cats.length === 0) { container.innerHTML = '<p class="summary-empty">No categories.</p>'; return; }
+
+  container.innerHTML = '';
+  cats.forEach(({ name, color }) => {
+    const isBuiltin = BUILTIN_CATEGORIES.some((b) => b.name === name);
+    const row = document.createElement('div');
+    row.className = 'manage-cat-row';
+
+    // Color swatch + hidden color input for changing color
+    row.innerHTML = `
+      <span class="manage-cat-dot" style="background:${color}" title="${color}"></span>
+      <span class="manage-cat-dot color-swatch-inline" style="background:${color};cursor:${isBuiltin ? 'default' : 'pointer'}" data-name="${escapeHtml(name)}" title="${color}"></span>
+      <span class="manage-cat-name">${escapeHtml(name)}</span>
+      <span class="manage-cat-color-badge" style="font-size:0.7rem;color:var(--text-muted)">${color}</span>
+      ${isBuiltin ? '' : `
+        <input type="color" class="color-picker-inline" value="${color}" data-name="${escapeHtml(name)}" aria-label="Change color for ${escapeHtml(name)}" />
+        <button class="btn-change-color" data-name="${escapeHtml(name)}" title="Change color">🎨</button>
+        <button class="btn-delete-cat" data-name="${escapeHtml(name)}" aria-label="Delete ${escapeHtml(name)}">✕</button>
+      `}
+    `;
+
+    if (!isBuiltin) {
+      const colorInput = row.querySelector('.color-picker-inline');
+      const changeBtn  = row.querySelector('.btn-change-color');
+      const deleteBtn  = row.querySelector('.btn-delete-cat');
+      const dot        = row.querySelector('.manage-cat-dot');
+      const badge      = row.querySelector('.manage-cat-color-badge');
+
+      changeBtn.addEventListener('click', () => colorInput.click());
+
+      colorInput.addEventListener('input', (e) => {
+        const newColor = e.target.value;
+        // Update custom category color in state
+        const idx = customCategories.findIndex((c) => c.name === name);
+        if (idx !== -1) {
+          customCategories[idx].color = newColor;
+          saveCategories();
+          // Update all transaction item CSS vars in DOM
+          document.querySelectorAll(`.transaction-item[data-category="${CSS.escape(name)}"]`)
+            .forEach((el) => el.style.setProperty('--cat-color', newColor));
+          // Live update swatch and badge
+          dot.style.background = newColor;
+          dot.title = newColor;
+          badge.textContent = newColor;
+          // Refresh chart if category visible
+          if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+          renderPieChart();
+        }
+      });
+
+      deleteBtn.addEventListener('click', () => handleDeleteCategory(name));
+    }
+    container.appendChild(row);
+  });
+}
+
+function handleDeleteCategory(name) {
+  // Prevent deleting if transactions still use this category
+  const inUse = transactions.some((t) => t.category === name);
+  if (inUse) {
+    alert(`Cannot delete "${name}" — transactions still use this category.`);
+    return;
+  }
+  customCategories = customCategories.filter((c) => c.name !== name);
+  saveCategories();
+  refreshCategorySelect();
+  renderManageCategories();
+}
+
+// ---------------------------------------------------------------------------
+// Edit modal
+// ---------------------------------------------------------------------------
+
+function openEditModal(id) {
+  const t = transactions.find((x) => x.id === id);
+  if (!t) return;
+
+  document.getElementById('edit-id').value       = t.id;
+  document.getElementById('edit-item-name').value = t.itemName;
+  document.getElementById('edit-amount').value    = t.amount;
+
+  // Format display
+  const displayEl = document.getElementById('edit-amount-display');
+  if (displayEl) displayEl.value = String(Math.round(t.amount)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  // Date
+  const d = new Date(t.timestamp);
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, '0');
+  const dd   = String(d.getDate()).padStart(2, '0');
+  document.getElementById('edit-date').value = `${yyyy}-${mm}-${dd}`;
+
+  // Populate category select in modal
+  const sel = document.getElementById('edit-category');
+  if (sel) {
+    sel.innerHTML = '';
+    allCategories().forEach(({ name }) => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      if (name === t.category) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  // Clear errors
+  ['edit-item-name-error','edit-amount-error','edit-category-error'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '';
+  });
+
+  const modal = document.getElementById('edit-modal');
+  if (modal) modal.hidden = false;
+}
+
+function closeEditModal() {
+  const modal = document.getElementById('edit-modal');
+  if (modal) modal.hidden = true;
+}
+
+function handleEditSubmit(event) {
+  event.preventDefault();
+
+  const id       = document.getElementById('edit-id').value;
+  const itemName = document.getElementById('edit-item-name').value;
+  const amount   = document.getElementById('edit-amount').value;
+  const category = document.getElementById('edit-category').value;
+  const dateStr  = document.getElementById('edit-date').value;
+
+  ['edit-item-name-error','edit-amount-error','edit-category-error'].forEach((id) => {
+    const el = document.getElementById(id); if (el) el.textContent = '';
+  });
+
+  const { valid, errors } = validateForm(itemName, amount, category, dateStr);
+  if (!valid) {
+    if (errors.itemName) setError('edit-item-name-error', errors.itemName);
+    if (errors.amount)   setError('edit-amount-error',   errors.amount);
+    if (errors.category) setError('edit-category-error', errors.category);
+    return;
+  }
+
+  const timestamp = dateStr ? new Date(dateStr + 'T12:00:00').getTime() : Date.now();
+
+  transactions = transactions.map((t) =>
+    t.id === id
+      ? { ...t, itemName: itemName.trim(), amount: parseFloat(amount), category, timestamp }
+      : t
+  );  saveToLocalStorage(transactions);
+  closeEditModal();
+  render();
 }
 
 // ---------------------------------------------------------------------------
@@ -510,4 +736,50 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-add-category')?.addEventListener('click', handleAddCategory);
   document.getElementById('btn-prev-month')?.addEventListener('click', handlePrevMonth);
   document.getElementById('btn-next-month')?.addEventListener('click', handleNextMonth);
+  initAmountInput();
+
+  // Sort
+  document.getElementById('sort-select')?.addEventListener('change', (e) => {
+    sortMode = e.target.value;
+    renderTransactionList(transactions);
+  });
+
+  // Edit modal
+  document.getElementById('edit-form')?.addEventListener('submit', handleEditSubmit);
+  document.getElementById('btn-edit-cancel')?.addEventListener('click', closeEditModal);
+  document.getElementById('edit-modal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeEditModal();
+  });
+
+  // Manage categories modal
+  document.getElementById('btn-manage-categories')?.addEventListener('click', () => {
+    renderManageCategories();
+    const modal = document.getElementById('manage-cat-modal');
+    if (modal) modal.hidden = false;
+  });
+  document.getElementById('btn-manage-cat-close')?.addEventListener('click', () => {
+    const modal = document.getElementById('manage-cat-modal');
+    if (modal) modal.hidden = true;
+  });
+  document.getElementById('manage-cat-modal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      const modal = document.getElementById('manage-cat-modal');
+      if (modal) modal.hidden = true;
+    }
+  });
+
+  // Edit modal amount input formatter
+  const editDisplay = document.getElementById('edit-amount-display');
+  const editHidden  = document.getElementById('edit-amount');
+  if (editDisplay && editHidden) {
+    editDisplay.addEventListener('input', () => {
+      const digits = editDisplay.value.replace(/\D/g, '');
+      editDisplay.value = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      editHidden.value = digits;
+    });
+    editDisplay.addEventListener('keydown', (e) => {
+      if (['Backspace','Delete','Tab','ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+      if (!/^\d$/.test(e.key)) e.preventDefault();
+    });
+  }
 });
